@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Previsão do Nível do Rio do Sul</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-container { max-width: 400px; }
+        label { display: block; margin: 10px 0 5px; }
+        input { width: 100%; padding: 5px; margin-bottom: 10px; }
+        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        #resultado { margin-top: 20px; font-weight: bold; }
+        #form-container { display: none; }
+    </style>
+</head>
+<body onload="loadFeatures()">
+    <h2>Previsão do Nível do Rio do Sul</h2>
+    <div id="form-container" class="form-container">
+        <form id="previsaoForm" onsubmit="preverNivel(event)">
+            <button type="submit">Prever Nível</button>
+        </form>
+        <div id="resultado"></div>
+    </div>
+    <script>
+        console.log('Script carregado');
+        async function loadFeatures() {
+            console.log('Iniciando loadFeatures');
+            try {
+                const response = await fetch('/features');
+                console.log('Resposta recebida:', response);
+                const data = await response.json();
+                console.log('Dados recebidos:', data);
+                const features = data.features.sort(); 
+                const form = document.getElementById('previsaoForm');
+                const container = document.getElementById('form-container');
+
+                if (!form || !container) {
+                    console.error('Elementos do formulário não encontrados');
+                    return;
+                }
+
+                features.forEach(feature => {
+                    const label = document.createElement('label');
+                    label.setAttribute('for', feature.replace(' ', '_'));
+                    label.textContent = `${feature} (m):`;
+
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.id = feature.replace(' ', '_');
+                    input.name = feature; 
+                    input.required = true;
+                    input.step = "0.01"; 
+
+                    form.insertBefore(label, form.querySelector('button'));
+                    form.insertBefore(input, form.querySelector('button'));
+                });
+
+                container.style.display = 'block';
+                console.log('Formulário criado com sucesso');
+            } catch (error) {
+                console.error('Erro ao carregar features:', error);
+                document.getElementById('resultado').innerText = 'Erro ao carregar o formulário.';
+            }
+        }
+
+        function preverNivel(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = {};
+            
+            // Manter a mesma ordem do backend
+            const features = Array.from(formData.keys()).sort();
+            features.forEach(feature => {
+                data[feature] = parseFloat(formData.get(feature));
+            });
+
+            fetch('/prever', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                document.getElementById('resultado').innerText = 
+                    `Nível previsto do rio: ${result.previsao.toFixed(2)} metros`;
+            })
+            .catch(error => {
+                document.getElementById('resultado').innerText = 'Erro ao prever o nível.';
+                console.error('Erro:', error);
+            });
+        }
+    </script>
+</body>
+</html>
