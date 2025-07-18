@@ -18,49 +18,61 @@
     <h2>Previsão do Nível do Rio do Sul</h2>
     <div id="form-container" class="form-container">
         <form id="previsaoForm" onsubmit="preverNivel(event)">
-            <button type="submit">Prever Nível</button>
         </form>
         <div id="resultado"></div>
     </div>
     <script>
-        console.log('Script carregado');
         async function loadFeatures() {
             console.log('Iniciando loadFeatures');
             try {
                 const response = await fetch('/features');
-                console.log('Resposta recebida:', response);
+                if (!response.ok) throw new Error('Erro na resposta do servidor');
                 const data = await response.json();
                 console.log('Dados recebidos:', data);
-                const features = data.features.sort(); 
+                const features = data.features.sort();
                 const form = document.getElementById('previsaoForm');
                 const container = document.getElementById('form-container');
 
                 if (!form || !container) {
                     console.error('Elementos do formulário não encontrados');
+                    document.getElementById('resultado').innerText = 'Erro: Formulário não carregado.';
                     return;
                 }
 
+                const button = form.querySelector('button');
+                while (form.firstChild && form.firstChild !== button) {
+                    form.removeChild(form.firstChild);
+                }
+
                 features.forEach(feature => {
+                    const safeId = feature.replace(/[^a-zA-Z0-9]/g, '_');
                     const label = document.createElement('label');
-                    label.setAttribute('for', feature.replace(' ', '_'));
-                    label.textContent = `${feature} (m):`;
+                    label.setAttribute('for', safeId);
+                    label.textContent = `${feature} (${feature.startsWith('Chuva') ? 'mm' : 'm'}):`;
 
                     const input = document.createElement('input');
                     input.type = 'number';
-                    input.id = feature.replace(' ', '_');
-                    input.name = feature; 
+                    input.id = safeId;
+                    input.name = feature;
                     input.required = true;
-                    input.step = "0.01"; 
+                    input.step = "0.01";
 
-                    form.insertBefore(label, form.querySelector('button'));
-                    form.insertBefore(input, form.querySelector('button'));
+                    form.insertBefore(label, button);
+                    form.insertBefore(input, button);
                 });
+
+                if (!button) {
+                    const newButton = document.createElement('button');
+                    newButton.type = 'submit';
+                    newButton.textContent = 'Prever Nível';
+                    form.appendChild(newButton);
+                }
 
                 container.style.display = 'block';
                 console.log('Formulário criado com sucesso');
             } catch (error) {
                 console.error('Erro ao carregar features:', error);
-                document.getElementById('resultado').innerText = 'Erro ao carregar o formulário.';
+                document.getElementById('resultado').innerText = `Erro ao carregar o formulário: ${error.message}`;
             }
         }
 
@@ -68,11 +80,10 @@
             event.preventDefault();
             const formData = new FormData(event.target);
             const data = {};
-            
-            // Manter a mesma ordem do backend
             const features = Array.from(formData.keys()).sort();
             features.forEach(feature => {
-                data[feature] = parseFloat(formData.get(feature));
+                const value = parseFloat(formData.get(feature)) || 0.0;
+                data[feature] = value;
             });
 
             fetch('/prever', {
